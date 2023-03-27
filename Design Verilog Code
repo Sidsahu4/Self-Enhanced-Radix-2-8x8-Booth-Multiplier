@@ -1,0 +1,133 @@
+module CLA #(parameter N=2) (Axx,Bxx,Cin,S,Cx,C);
+  input [N-1:0]Axx,Bxx;
+  input Cin;
+  output reg[N:0]C;
+  output reg[N-1:0]S;
+  reg [N-1:0]P;
+  reg [N-1:0]G;
+  output reg Cx;
+  integer i;
+  always@(*)
+    begin
+      for(i=0;i<(N+1);i=i+1)
+        begin
+          C[0]=Cin;
+          P[i]=Axx[i]^Bxx[i];
+          G[i]=Axx[i]&Bxx[i];
+          C[i+1]=G[i]+(P[i]&C[i]);
+          S[i]=P[i]^C[i];
+        end
+       Cx=C[N];
+        end
+      endmodule
+
+module mainckt(A0,B0,Cin0,Sout);
+input [7:0]A0,B0;
+  wire[2:0]Cx0;
+  wire [3:0]Cx1;
+  wire [3:0]Cx3;
+  //input [2:0]A1,B1;
+  //input [2:0]A3,B3;
+  input Cin0;
+  output [7:0]Sout;
+  //output Cout;
+  wire [1:0]S0;
+  wire [2:0]S1;
+  wire [2:0]S3;
+  wire cout;
+  wire [3:0]out0;
+  wire [3:0]out1;
+  wire C0,C1,C3;
+defparam a0.N=2;
+defparam a1.N=3;
+defparam a3.N=3;
+  CLA a0 (A0[1:0], B0[1:0], Cin0, S0, C0, Cx0);
+   CLA a1 (A0[4:2],B0[4:2],C0,S1,C1, Cx1);
+//parameter N=4; 
+  CLA a3 (A0[7:5],B0[7:5],C1,S3,C3,Cx3);
+//parameter N1=4;
+  assign Sout={S3[2:0],S1[2:0],S0[1:0]};
+  //assign Cout=C3;
+endmodule
+
+
+module B2C(X,Y);
+  input [7:0]X;
+  output reg[7:0]Y;
+  always@(X)
+    begin
+            Y=~X+1;      
+    end
+endmodule
+
+module iiitb_r2_4bit_bm(
+	input clk,
+	input load,
+	input reset,
+	input Cin0,
+  input [7:0] M,
+  input [7:0] Q,
+  output reg [15:0] P
+    );
+    //wire Cout;	
+    wire [7:0] L1,L2,X;
+  reg [7:0] A 		=  4'b0;
+	reg Q_minus_one 	=1'b0;
+  reg [7:0] Q_temp 	=  4'b0;
+  reg [7:0] M_temp 	=  4'b0;
+  reg [3:0] Count 	=  4'b1000;
+assign Cin0=1'b0;
+mainckt L12(A,M_temp,Cin0,L1);
+B2C B2(M_temp,X);
+mainckt L22(A,X,Cin0,L2);
+  
+	always @ (posedge clk)
+	begin
+		if (reset == 1)
+		begin
+			A 			=  8'b0;		//reset values
+			Q_minus_one  =  0;
+			P 			=  16'b0;
+			Q_temp 		=  8'b0;
+			M_temp 		=  8'b0;
+			Count 		=  4'b1000;
+		end
+		else if (load == 1)
+		begin
+			Q_temp 		=  Q;
+			M_temp 		=  M;
+		end
+       else if((Q_temp[0] == Q_minus_one ) && (Count > 4'b0000))
+		begin
+			Q_minus_one =  Q_temp[0];
+          	Q_temp		=  {A[0],Q_temp[7:1]};				// right shift Q							
+          	A		=  {A[7],A[7:1]};					// right shift A	
+		    Count 	=  Count - 1'b1;					
+		end
+       else if((Q_temp[0] == 0 && Q_minus_one == 1)  && (Count > 4'b0000))
+		begin
+		                            
+		      A=L1;
+			Q_minus_one =  Q_temp[0];
+          Q_temp 		=  {A[0],Q_temp[7:1]};				// right shift Q
+          A 			=  {A[7],A[7:1]};					// right shift A
+			Count 		=  Count - 1'b1;
+		end
+       else if((Q_temp[0] == 1 && Q_minus_one == 0)  && (Count > 4'b0000))
+		begin
+		      
+		       //mainckt (A[1:0],X[1:0],Cin0,A[4:2],X[4:2],A[7:5],X[7:5],L,Cout);
+                      
+		       A=L2;
+			Q_minus_one =  Q_temp[0];
+          Q_temp 		=  {A[0],Q_temp[7:1]};				// right shift Q
+          A 			=  {A[7],A[7:1]};					// right shift A
+			Count 		=  Count - 1'b1;
+		end
+		else
+		begin
+			Count = 4'b0000;
+		end
+		P = {A, Q_temp};
+	end
+endmodule
